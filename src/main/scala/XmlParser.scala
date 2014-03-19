@@ -21,31 +21,52 @@ object XmlParser {
     def apply[A](s: List[XmlToken] => OptionTrampoline[(List[XmlToken], A)]): ParseState[A] = StateT(s)
   }
 
+  // Close <-> Boolean
+  sealed trait Close {
+    def fold[A](found: A, notFound: => A): A = this match {
+      case CloseFound => found
+      case CloseNotFound => notFound
+    }
+  }
+  object Close {
+    val found: Close = CloseFound
+    val notFound: Close = CloseNotFound
+  }
+  case object CloseFound extends Close
+  case object CloseNotFound extends Close
+
   def parseTokens: State[List[XmlToken], List[XmlNode]] = State { (t: List[XmlToken]) =>
-    def recurse: ParseState[List[XmlNode]] =
-      ParseState { (t: List[XmlToken]) =>
+    def recurse: OptionState[(List[XmlToken], Close), List[XmlNode]] =
+      StateT { case (t, b) =>
         trampolineOption(t.headOption).flatMap {
           // Ignore the XML header
           case XmlTokenStart("?xml", _, true) =>
-            recurse(t.tail)
+            recurse((t.tail, Close.notFound))
           case XmlTokenText(content) =>
-            (recurse.map(XmlNodeText(content) :: _)).apply(t.tail)
+            (recurse.map(XmlNodeText(content) :: _)).apply((t.tail, Close.notFound))
           case XmlTokenStart(name, attribs, true) =>
-            (recurse.map(XmlNodeElement(name, attribs, Nil) :: _)).apply(t.tail)
+            (recurse.map(XmlNodeElement(name, attribs, Nil) :: _)).apply((t.tail, Close.notFound))
           case XmlTokenStart(name, attribs, false) =>
             for {
-              inner <- recurse.apply(t.tail)
-              (innerTail, innerNodes) = inner
-              outer <- recurse.apply(innerTail)
-              (outerTail, outerNodes) = outer
-            } yield (outerTail, XmlNodeElement(name, attribs, innerNodes) :: outerNodes)
+              inner <- recurse((t.tail, Close.notFound))
+              ((innerTail, closed), innerNodes) = inner
+              // We didn't find a close? Let's not process these tokens until we do.
+              _ <- closed.fold(
+                ().point[OptionTrampoline],
+                trampolineOption(None)
+              )
+              outer <- recurse((innerTail, Close.notFound))
+              (outerState, outerNodes) = outer
+            } yield (outerState, XmlNodeElement(name, attribs, innerNodes) :: outerNodes)
           // TODO: Assumption, tokens are always balanced
           case XmlTokenEnd(_) =>
-            (t.tail, List.empty[XmlNode]).point[OptionTrampoline]
-        } orElse (t, List.empty[XmlNode]).point[OptionTrampoline]
+            ((t.tail, Close.found), List.empty[XmlNode]).point[OptionTrampoline]
+        } orElse ((t, b), List.empty[XmlNode]).point[OptionTrampoline]
       }
 
-    (recurse(t) getOrElse ((List.empty, Nil))).run
+    (recurse((t, Close.notFound)) getOrElse (((List.empty, Close.notFound), Nil))).run match {
+      case ((tokens, _), nodes) => (tokens, nodes)
+    }
   }
 
   // TODO: Ignores any left over characters

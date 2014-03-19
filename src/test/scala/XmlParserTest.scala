@@ -40,5 +40,27 @@ class XmlParserTest extends Specification {
 
       XmlParser.parseTokens(inputTokens) === ((Nil, expectedNodes))
     }
+    "parse a partially tokenized document" in {
+      val inputTokens =
+        List(
+          XmlTokenStart("?xml", XmlAttribute("version", "1.0") :: Nil, true),
+          XmlTokenStart("hello", Nil, true),
+          XmlTokenStart("test", XmlAttribute("a", "b") :: Nil, false),
+          XmlTokenStart("test", XmlAttribute("b", "a") :: Nil, false)
+        )
+
+      val expectedUnparsed =
+        List(
+          XmlTokenStart("test", XmlAttribute("a", "b") :: Nil, false),
+          XmlTokenStart("test", XmlAttribute("b", "a") :: Nil, false)
+        )
+
+      val expectedNodes =
+        List(
+          XmlNodeElement("hello", Nil, Nil)
+        )
+
+      XmlParser.parseTokens(inputTokens) === ((expectedUnparsed, expectedNodes))
+    }
   }
 }
