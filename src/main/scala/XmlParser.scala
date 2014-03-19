@@ -39,8 +39,8 @@ object XmlParser {
     def recurse: OptionState[(List[XmlToken], Close), List[XmlNode]] =
       StateT { case (t, b) =>
         trampolineOption(t.headOption).flatMap {
-          // Ignore the XML header
-          case XmlTokenStart("?xml", _, true) =>
+          // Ignore
+          case o if o.isDeclaration =>
             recurse((t.tail, Close.notFound))
           case XmlTokenText(content) =>
             (recurse.map(XmlNodeText(content) :: _)).apply((t.tail, Close.notFound))

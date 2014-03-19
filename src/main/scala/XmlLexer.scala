@@ -13,7 +13,12 @@ import scalaz.stream
 import scalaz.syntax.applicative._
 import scalaz.syntax.foldable._
 
-sealed trait XmlToken
+sealed trait XmlToken {
+  def isDeclaration: Boolean = this match {
+    case XmlTokenStart("?xml", _, true) => true
+    case _ => false
+  }
+}
 // TODO: entities, cdata, comments, qualified names
 case class XmlTokenStart(name: String, attributes: List[XmlAttribute], empty: Boolean) extends XmlToken
 case class XmlTokenEnd(name: String) extends XmlToken
