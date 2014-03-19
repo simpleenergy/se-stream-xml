@@ -1,8 +1,11 @@
 package com.simpleenergy.xml.stream
 
+import scalaz.@?>
 import scalaz.MonadState
+import scalaz.PLens
 import scalaz.State
 import scalaz.StateT
+import scalaz.StoreT
 import scalaz.std.string._
 import scalaz.syntax.applicative._
 import scalaz.syntax.bind._
@@ -11,6 +14,28 @@ import scalaz.syntax.equal._
 sealed trait XmlNode
 case class XmlNodeElement(name: String, attribs: List[XmlAttribute], content: List[XmlNode]) extends XmlNode
 case class XmlNodeText(content: String) extends XmlNode
+object XmlNode {
+  val elementNamePLens: XmlNode @?> String = PLens.plens {
+    case e@XmlNodeElement(name, _, _) => Some(StoreT.store(name) { n => e.copy(name=n) })
+    case XmlNodeText(_) => None
+  }
+  val elementAttribsPLens: XmlNode @?> List[XmlAttribute] = PLens.plens {
+    case e@XmlNodeElement(_, attribs, _) => Some(StoreT.store(attribs) { a => e.copy(attribs=a) })
+    case XmlNodeText(_) => None
+  }
+  val elementContentPLens: XmlNode @?> List[XmlNode] = PLens.plens {
+    case e@XmlNodeElement(_, _, content) => Some(StoreT.store(content) { c => e.copy(content=c) })
+    case XmlNodeText(_) => None
+  }
+  val textContentPLens: XmlNode @?> String = PLens.plens {
+    case t@XmlNodeText(content) => Some(StoreT.store(content) { c => t.copy(content=c) })
+    case XmlNodeElement(_, _, _) => None
+  }
+  def namedElementContentPLens(Name: String): XmlNode @?> List[XmlNode] = PLens.plens {
+    case e@XmlNodeElement(Name, _, _) => elementContentPLens(e)
+    case _ => None
+  }
+}
 
 object XmlParser {
   type ParseState[A] = OptionState[List[XmlToken], A]

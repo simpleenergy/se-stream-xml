@@ -63,4 +63,50 @@ class XmlParserTest extends Specification {
       XmlParser.parseTokens(inputTokens) === ((expectedUnparsed, expectedNodes))
     }
   }
+
+  "XmlNode lenses" should {
+    // TODO: ScalaCheck the plens laws
+    "get element content" in {
+      val content = XmlNode.elementContentPLens.get(
+        XmlNodeElement("test", XmlAttribute("a", "b") :: Nil, List(
+          XmlNodeElement("hello", Nil, Nil)
+        ))
+      )
+
+      content must be some(List(
+        XmlNodeElement("hello", Nil, Nil)
+      ))
+    }
+    "set element content" in {
+      val content = XmlNode.elementContentPLens.set(
+        XmlNodeElement("test", XmlAttribute("a", "b") :: Nil, List(
+          XmlNodeElement("hello", Nil, Nil)
+        )),
+        List.empty
+      )
+
+      content must be some(
+        XmlNodeElement("test", XmlAttribute("a", "b") :: Nil, Nil)
+      )
+    }
+    "get text content" in {
+      val content = XmlNode.textContentPLens.get(
+        XmlNodeText("world")
+      )
+
+      content must be some(
+        "world"
+      )
+    }
+    "set text content" in {
+      val content = XmlNode.textContentPLens.set(
+        XmlNodeText("world"),
+        "hello"
+      )
+
+      content must be some(
+        XmlNodeText("hello")
+      )
+    }
+  }
 }
