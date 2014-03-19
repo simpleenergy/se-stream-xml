@@ -29,3 +29,7 @@ scalacOptions ++= Seq(
   "-feature",
   "-language:higherKinds"
 )
+
+homepage := Some(url("https://github.com/simpleenergy/se-stream-xml"))
+
+licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
