@@ -32,7 +32,7 @@ package object stream {
         // Scala can't figure out the type of Process#next in this pattern match
         // Surprisingly doesn't trigger the erasure warning either
         case Emit(h: Seq[M], t: Process[F, M]) =>
-          val combined = h.toList.suml
+          val combined = (c :: h.toList).suml
           val (d, result) = s(combined)
           Process.emit(result) ++ recurse(t, d)
         case Await(req, recv, fb: Process[F, M], d: Process[F, M]) =>
