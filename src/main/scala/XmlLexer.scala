@@ -3,6 +3,7 @@ package com.simpleenergy.xml.stream
 import scalaz.Catchable
 import scalaz.Foldable
 import scalaz.MonadState
+import scalaz.Monoid
 import scalaz.OptionT
 import scalaz.State
 import scalaz.StateT
@@ -145,27 +146,8 @@ object XmlLexer {
       (State.modify((_: Array[Byte]) ++ x) *> tokens).map(accum ++ _)
     }.run(Array.empty)
 
-  def lexProcess[F[_]](p: stream.Process[F, Array[Byte]]): stream.Process[F, List[XmlToken]] = {
-    def recurse(q: stream.Process[F, Array[Byte]], c: Array[Byte]): stream.Process[F, List[XmlToken]] =
-      q match {
-        case h@stream.Process.Halt(_) => h
-        // Scala can't figure out the type of Process#next in this pattern match
-        // Surprisingly doesn't trigger the erasure warning either
-        case stream.Process.Emit(h, t: stream.Process[F, Array[Byte]]) =>
-          val combined = h.toList.foldLeft[Array[Byte]](c)(_ ++ _)
-          val (d, resultTokens) = tokens(combined)
-          stream.Process.emit(resultTokens) ++ recurse(t, d)
-        case stream.Process.Await(req, recv, fb, d) =>
-          // TODO: scalaz-stream has AwaitF#unapply - a safer upcast to Any, but as a private...
-          stream.Process.await[F, Any, List[XmlToken]](req.asInstanceOf[F[Any]])(
-            (a: Any) => recurse(recv.asInstanceOf[Any => stream.Process[F, Array[Byte]]](a), c),
-            recurse(fb.asInstanceOf[stream.Process[F, Array[Byte]]], c),
-            recurse(d.asInstanceOf[stream.Process[F, Array[Byte]]], c)
-          )
-      }
-
-    recurse(p, Array.empty)
-  }
+  def lexProcess[F[_]](p: stream.Process[F, Array[Byte]]): stream.Process[F, List[XmlToken]] =
+    processMonoidState(p, tokens)(Monoid.instance(_ ++ _, Array.empty))
 
   def lexFilename(filename: XmlFilename, chunkSize: Int) = {
     val input = stream.io.fileChunkR(filename.string)
