@@ -11,6 +11,11 @@ import scalaz.stream.Process
 import scalaz.stream.Process.{Await, Emit, Halt}
 import scalaz.syntax.foldable._
 
+package stream {
+  case class XmlFilename(string: String)
+  case class XmlAttribute(key: String, value: String)
+}
+
 package object stream {
   // type aliases cause implicit resolution to work
   type OptionTrampoline[A] = OptionT[Trampoline, A]

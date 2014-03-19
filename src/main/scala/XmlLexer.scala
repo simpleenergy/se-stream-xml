@@ -13,10 +13,6 @@ import scalaz.stream
 import scalaz.syntax.applicative._
 import scalaz.syntax.foldable._
 
-case class XmlFilename(string: String)
-
-case class XmlAttribute(key: String, value: String)
-
 sealed trait XmlToken
 // TODO: entities, cdata, comments, qualified names
 case class XmlTokenStart(name: String, attributes: List[XmlAttribute], empty: Boolean) extends XmlToken
