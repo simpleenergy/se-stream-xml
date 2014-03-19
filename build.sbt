@@ -29,5 +29,3 @@ scalacOptions ++= Seq(
   "-feature",
   "-language:higherKinds"
 )
-
-conflictManager := ConflictManager.strict.copy(organization = "org.scalaz.*")
