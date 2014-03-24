@@ -102,4 +102,10 @@ class XmlLexerTest extends Specification with ScalaCheck {
       }
     }
   }
+
+  "dropSpace" should {
+    "be isomorphic to a dropWhile" in check { (c: Array[Byte]) =>
+      XmlLexer.dropSpace.exec(c).run.run.map(_.mkString) must be some(c.dropWhile((XmlLexer.isSpace _).compose(_.toChar)).mkString)
+    }
+  }
 }

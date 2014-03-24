@@ -62,7 +62,17 @@ object XmlLexer {
   def endName(c: Char) = isSpace(c) || c == '=' || c == '>' || c == '/'
 
   val dropSpace: TokenState[Unit] = T.modify { (c: Array[Byte]) =>
-    c.dropWhile((isSpace _).compose(_.toChar))
+    val i = c.indexWhere { (b: Byte) => !isSpace(b.toChar) }
+    if (i == -1)
+      Array.empty[Byte]
+    else if (i == 0)
+      c
+    else {
+      val s = c.length - i
+      val r = new Array[Byte](s)
+      Array.copy(c, i, r, 0, s)
+      r
+    }
   }
 
   val qualName: TokenState[String] =
