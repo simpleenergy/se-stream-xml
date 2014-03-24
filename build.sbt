@@ -33,3 +33,5 @@ scalacOptions ++= Seq(
 homepage := Some(url("https://github.com/simpleenergy/se-stream-xml"))
 
 licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
+
+bintrayPublishSettings
