@@ -9,6 +9,7 @@ import scalaz.State
 import scalaz.StateT
 import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.std.string._
 import scalaz.stream
 import scalaz.syntax.applicative._
 import scalaz.syntax.foldable._
@@ -30,15 +31,15 @@ case class XmlTokenText(content: String) extends XmlToken
   * Largely ported from Galois' Haskell xml package
   */
 object XmlLexer {
-  type TokenState[A] = OptionState[Array[Byte], A]
+  type TokenState[A] = OptionState[String, A]
 
   object TokenState {
-    def apply[A](s: Array[Byte] => OptionTrampoline[(Array[Byte], A)]): TokenState[A] = StateT(s)
+    def apply[A](s: String => OptionTrampoline[(String, A)]): TokenState[A] = StateT(s)
   }
 
-  val T = MonadState[OptionState, Array[Byte]]
+  val T = MonadState[OptionState, String]
 
-  private [stream] def break[A](f: A => Boolean, xs: Array[A]): Option[(Array[A], Array[A])] = {
+  private [stream] def break(f: Char => Boolean, xs: String): Option[(String, String)] = {
     val index = xs.indexWhere(f)
     if (index == -1)
       None
@@ -46,13 +47,13 @@ object XmlLexer {
       Some(xs.splitAt(index))
   }
 
-  private[stream] def tailOption[A](a: Array[A]) =
+  private[stream] def tailOption(a: String) =
     if (a.length > 0)
       Some(a.tail)
     else
       None
 
-  def breakS(f: Byte => Boolean): TokenState[String] = TokenState { (c: Array[Byte]) =>
+  def breakS(f: Char => Boolean): TokenState[String] = TokenState { (c: String) =>
     trampolineOption(break(f, c).map {
       case (s, c) => (c, new String(s))
     })
@@ -61,44 +62,32 @@ object XmlLexer {
   def isSpace(c: Char) = java.lang.Character.isWhitespace(c)
   def endName(c: Char) = isSpace(c) || c == '=' || c == '>' || c == '/'
 
-  val dropSpace: TokenState[Unit] = T.modify { (c: Array[Byte]) =>
-    val i = c.indexWhere { (b: Byte) => !isSpace(b.toChar) }
-    if (i == -1)
-      Array.empty[Byte]
-    else if (i == 0)
-      c
-    else {
-      val s = c.length - i
-      val r = new Array[Byte](s)
-      Array.copy(c, i, r, 0, s)
-      r
-    }
-  }
+  val dropSpace: TokenState[Unit] = T.modify(_.dropWhile(XmlLexer.isSpace))
 
   val qualName: TokenState[String] =
-    breakS((endName _).compose(_.toChar))
+    breakS(endName)
 
-  val skipByte: TokenState[Unit] =
-    TokenState { (c: Array[Byte]) =>
+  val skipChar: TokenState[Unit] =
+    TokenState { (c: String) =>
       trampolineOption(tailOption(c).map((_, ())))
     }
 
   val stringVal: TokenState[String] =
     // "
-    skipByte *>
+    skipChar *>
       breakS(_ == '"') <*
       // "
-      skipByte
+      skipChar
 
   val attribVal: TokenState[String] =
     // =
-    skipByte *>
+    skipChar *>
       stringVal
 
   val attrib: TokenState[XmlAttribute] =
     (qualName |@| attribVal)(XmlAttribute)
 
-  def attribs: TokenState[(List[XmlAttribute], Boolean)] = TokenState { (c: Array[Byte]) =>
+  def attribs: TokenState[(List[XmlAttribute], Boolean)] = TokenState { (c: String) =>
     trampolineOption(c.headOption).flatMap {
       case '>' => (c.tail, (List.empty[XmlAttribute], false)).point[OptionTrampoline]
       // TODO: Assumption of "/>" or "?>"
@@ -110,10 +99,10 @@ object XmlLexer {
     }
   }
 
-  val tag: TokenState[XmlToken] = TokenState { (c: Array[Byte]) =>
+  val tag: TokenState[XmlToken] = TokenState { (c: String) =>
     trampolineOption(c.headOption).flatMap {
       case '/' =>
-        ((qualName <* dropSpace <* T.modify { (c: Array[Byte]) =>
+        ((qualName <* dropSpace <* T.modify { (c: String) =>
           c.headOption.fold(c) {
             case '>' =>
               c.tail
@@ -128,13 +117,9 @@ object XmlLexer {
     }
   }
 
-  def byteHead: TokenState[Byte] = TokenState { (c: Array[Byte]) =>
-    trampolineOption(c.headOption.map((c, _)))
-  }
-
-  def tokens: State[Array[Byte], List[XmlToken]] = State { (c: Array[Byte]) =>
+  def tokens: State[String, List[XmlToken]] = State { (c: String) =>
     def recurse: TokenState[List[XmlToken]] =
-      dropSpace *> TokenState { (c: Array[Byte]) =>
+      dropSpace *> TokenState { (c: String) =>
         trampolineOption(c.headOption).flatMap {
           case '<' =>
             (dropSpace *> (tag |@| recurse) {
@@ -147,21 +132,19 @@ object XmlLexer {
         } orElse (c, List.empty[XmlToken]).point[OptionTrampoline]
       }
 
-    (recurse(c) getOrElse ((Array.empty, Nil))).run
+    (recurse(c) getOrElse (("", Nil))).run
   }
 
-  def lexString(string: String) = tokens(string.toArray.map(_.toByte))
+  def lexFoldable[F[_]: Foldable](f: F[String]) =
+    f.foldLeftM[({type l[a]=State[String, a]})#l, List[XmlToken]](Nil) { case (accum, x) =>
+      (State.modify((_: String) + x) *> tokens).map(accum ++ _)
+    }.run("")
 
-  def lexFoldable[F[_]: Foldable](f: F[Array[Byte]]) =
-    f.foldLeftM[({type l[a]=State[Array[Byte], a]})#l, List[XmlToken]](Nil) { case (accum, x) =>
-      (State.modify((_: Array[Byte]) ++ x) *> tokens).map(accum ++ _)
-    }.run(Array.empty)
+  def lexProcess[F[_]](p: stream.Process[F, String]): stream.Process[F, List[XmlToken]] =
+    processMonoidState(p, tokens)
 
-  def lexProcess[F[_]](p: stream.Process[F, Array[Byte]]): stream.Process[F, List[XmlToken]] =
-    processMonoidState(p, tokens)(Monoid.instance(_ ++ _, Array.empty))
-
-  def lexFilename(filename: XmlFilename, chunkSize: Int) = {
-    val input = stream.io.fileChunkR(filename.string)
-    lexProcess(stream.Process.constant(chunkSize).through(input))
+  def lexFilename(filename: XmlFilename) = {
+    val input = stream.io.linesR(filename.string)
+    lexProcess(input)
   }
 }

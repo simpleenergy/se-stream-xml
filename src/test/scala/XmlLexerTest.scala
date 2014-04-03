@@ -45,7 +45,7 @@ class XmlLexerTest extends Specification with ScalaCheck {
           XmlTokenEnd("test")
         )
 
-      XmlLexer.lexString(xml).leftMap(new String(_)) === (("", expectedTokens))
+      XmlLexer.tokens(xml).leftMap(new String(_)) === (("", expectedTokens))
     }
     "tokenize a partial document" in {
       val xml = """<test a="b"><hello wo"""
@@ -55,7 +55,7 @@ class XmlLexerTest extends Specification with ScalaCheck {
           XmlTokenStart("test", XmlAttribute("a", "b") :: Nil, false)
         )
 
-      XmlLexer.lexString(xml).leftMap(new String(_)) === (("<hello wo", expectedTokens))
+      XmlLexer.tokens(xml).leftMap(new String(_)) === (("<hello wo", expectedTokens))
     }
     "tokenize a group of partial documents" in {
       val xml = List(
@@ -71,10 +71,10 @@ class XmlLexerTest extends Specification with ScalaCheck {
           XmlTokenEnd("test")
         )
 
-      XmlLexer.lexFoldable(xml.map(_.toArray.map(_.toByte))).leftMap(new String(_)) === (("", expectedTokens))
+      XmlLexer.lexFoldable(xml).leftMap(new String(_)) === (("", expectedTokens))
     }
     "tokenize a streaming process" in {
-      val p = stream.Process.emitAll(List("<ab", "c>", "hel", "lo", "</", "abc>").map(_.toArray.map(_.toByte)))
+      val p = stream.Process.emitAll(List("<ab", "c>", "hel", "lo", "</", "abc>"))
       val r: stream.Process[SafeCatchable, List[XmlToken]] = XmlLexer.lexProcess(p)
 
       val expectedTokens =
@@ -89,23 +89,17 @@ class XmlLexerTest extends Specification with ScalaCheck {
   }
 
   "break" should {
-    "be none after running until the end" in check { (f: Int => Boolean, xs: Array[Int]) =>
+    "be none after running until the end" in check { (f: Char => Boolean, xs: String) =>
       !xs.exists(f) ==> {
         XmlLexer.break(f, xs) must beNone
       }
     }
-    "retain more information than Array#span" in check { (f: Int => Boolean, xs: Array[Int]) =>
+    "retain more information than Array#span" in check { (f: Char => Boolean, xs: String) =>
       xs.exists(f) ==> {
         // The arrays are not comparable, let's just use length
-        def bilength[A](t: (Array[A], Array[A])) = t.bimap(_.length, _.length)
+        def bilength(t: (String, String)) = t.bimap(_.length, _.length)
         XmlLexer.break(f, xs).map(bilength) === Some(bilength(xs.span(!f(_))))
       }
-    }
-  }
-
-  "dropSpace" should {
-    "be isomorphic to a dropWhile" in check { (c: Array[Byte]) =>
-      XmlLexer.dropSpace.exec(c).run.run.map(_.mkString) must be some(c.dropWhile((XmlLexer.isSpace _).compose(_.toChar)).mkString)
     }
   }
 }

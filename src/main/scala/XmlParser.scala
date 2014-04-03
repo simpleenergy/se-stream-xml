@@ -95,5 +95,5 @@ object XmlParser {
   }
 
   // TODO: Ignores any left over characters
-  def parseString(string: String) = parseTokens(XmlLexer.lexString(string)._2)
+  def parseString(string: String) = parseTokens(XmlLexer.tokens(string)._2)
 }
