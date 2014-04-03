@@ -1,5 +1,7 @@
 package com.simpleenergy.xml.stream
 
+import collection.immutable.StringOps
+
 import scalaz.Catchable
 import scalaz.Foldable
 import scalaz.MonadState
@@ -40,16 +42,16 @@ object XmlLexer {
   val T = MonadState[OptionState, String]
 
   private [stream] def break(f: Char => Boolean, xs: String): Option[(String, String)] = {
-    val index = xs.indexWhere(f)
+    val index = new StringOps(xs).indexWhere(f)
     if (index == -1)
       None
     else
-      Some(xs.splitAt(index))
+      Some(new StringOps(xs).splitAt(index))
   }
 
   private[stream] def tailOption(a: String) =
     if (a.length > 0)
-      Some(a.tail)
+      Some(new StringOps(a).tail)
     else
       None
 
@@ -62,7 +64,7 @@ object XmlLexer {
   def isSpace(c: Char) = java.lang.Character.isWhitespace(c)
   def endName(c: Char) = isSpace(c) || c == '=' || c == '>' || c == '/'
 
-  val dropSpace: TokenState[Unit] = T.modify(_.dropWhile(XmlLexer.isSpace))
+  val dropSpace: TokenState[Unit] = T.modify(new StringOps(_).dropWhile(XmlLexer.isSpace))
 
   val qualName: TokenState[String] =
     breakS(endName)
@@ -88,10 +90,10 @@ object XmlLexer {
     (qualName |@| attribVal)(XmlAttribute)
 
   def attribs: TokenState[(List[XmlAttribute], Boolean)] = TokenState { (c: String) =>
-    trampolineOption(c.headOption).flatMap {
-      case '>' => (c.tail, (List.empty[XmlAttribute], false)).point[OptionTrampoline]
+    trampolineOption(new StringOps(c).headOption).flatMap {
+      case '>' => (new StringOps(c).tail, (List.empty[XmlAttribute], false)).point[OptionTrampoline]
       // TODO: Assumption of "/>" or "?>"
-      case '/' | '?' => trampolineOption(tailOption(c.tail).map { t => (t, (List.empty[XmlAttribute], true)) })
+      case '/' | '?' => trampolineOption(tailOption(new StringOps(c).tail).map { t => (t, (List.empty[XmlAttribute], true)) })
       case _ =>
         ((attrib |@| dropSpace *> attribs) { case (a, (as, b)) =>
           (a :: as, b)
@@ -100,16 +102,16 @@ object XmlLexer {
   }
 
   val tag: TokenState[XmlToken] = TokenState { (c: String) =>
-    trampolineOption(c.headOption).flatMap {
+    trampolineOption(new StringOps(c).headOption).flatMap {
       case '/' =>
         ((qualName <* dropSpace <* T.modify { (c: String) =>
-          c.headOption.fold(c) {
+          new StringOps(c).headOption.fold(c) {
             case '>' =>
-              c.tail
+              new StringOps(c).tail
             case _ =>
               c
           }
-        }).map[XmlToken](XmlTokenEnd)).apply(c.tail)
+        }).map[XmlToken](XmlTokenEnd)).apply(new StringOps(c).tail)
       case _ =>
         ((qualName |@| dropSpace *> attribs) { case (qn, (as, b)) =>
           XmlTokenStart(qn, as, b)
@@ -120,11 +122,11 @@ object XmlLexer {
   def tokens: State[String, List[XmlToken]] = State { (c: String) =>
     def recurse: TokenState[List[XmlToken]] =
       dropSpace *> TokenState { (c: String) =>
-        trampolineOption(c.headOption).flatMap {
+        trampolineOption(new StringOps(c).headOption).flatMap {
           case '<' =>
             (dropSpace *> (tag |@| recurse) {
               _ :: _
-            })(c.tail)
+            })(new StringOps(c).tail)
           case _ =>
             ((breakS(_ == '<').map(XmlTokenText) |@| recurse) {
               _ :: _

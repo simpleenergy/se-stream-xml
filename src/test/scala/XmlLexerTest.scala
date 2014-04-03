@@ -3,6 +3,8 @@ package com.simpleenergy.xml.stream
 import org.specs2.mutable._
 import org.specs2.ScalaCheck
 
+import collection.immutable.StringOps
+
 import scalaz.Catchable
 import scalaz.Monad
 import scalaz.\/
@@ -90,15 +92,15 @@ class XmlLexerTest extends Specification with ScalaCheck {
 
   "break" should {
     "be none after running until the end" in check { (f: Char => Boolean, xs: String) =>
-      !xs.exists(f) ==> {
+      !new StringOps(xs).exists(f) ==> {
         XmlLexer.break(f, xs) must beNone
       }
     }
     "retain more information than Array#span" in check { (f: Char => Boolean, xs: String) =>
-      xs.exists(f) ==> {
+      new StringOps(xs).exists(f) ==> {
         // The arrays are not comparable, let's just use length
         def bilength(t: (String, String)) = t.bimap(_.length, _.length)
-        XmlLexer.break(f, xs).map(bilength) === Some(bilength(xs.span(!f(_))))
+        XmlLexer.break(f, xs).map(bilength) === Some(bilength(new StringOps(xs).span(!f(_))))
       }
     }
   }
