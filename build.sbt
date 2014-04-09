@@ -20,7 +20,7 @@ scalacOptions ++= Seq(
   "-Xfuture",
   "-Xlint",
   "-Yno-adapted-args",
-  "-Yno-predef",
+  "-Yno-imports",
   "-Ywarn-all",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",

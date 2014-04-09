@@ -1,5 +1,8 @@
 package com.simpleenergy.xml
 
+import java.lang.String
+import scala.{Any, Seq, Option}
+
 import scalaz.Free.Trampoline
 import scalaz.Monoid
 import scalaz.OptionT

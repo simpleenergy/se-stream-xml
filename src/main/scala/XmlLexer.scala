@@ -1,6 +1,8 @@
 package com.simpleenergy.xml.stream
 
-import collection.immutable.StringOps
+import java.lang.String
+import scala.collection.immutable.StringOps
+import scala.{Boolean, Char, List, Nil, None, Some, Option, Unit}
 
 import scalaz.Catchable
 import scalaz.Foldable

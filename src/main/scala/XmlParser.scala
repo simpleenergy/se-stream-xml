@@ -1,5 +1,8 @@
 package com.simpleenergy.xml.stream
 
+import java.lang.String
+import scala.{List, Nil, None, Some}
+
 import scalaz.@?>
 import scalaz.MonadState
 import scalaz.PLens
