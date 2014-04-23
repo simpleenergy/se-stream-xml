@@ -3,20 +3,23 @@ package com.simpleenergy.xml.stream
 import org.specs2.mutable._
 import org.specs2.ScalaCheck
 
-import collection.immutable.StringOps
+import java.lang.String
+import scala.{Boolean, Char, List, Nil, Option, Throwable, Vector}
+import scala.collection.immutable.StringOps
 
 import scalaz.Catchable
 import scalaz.Monad
 import scalaz.\/
 import scalaz.std.list._
+import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.stream
 import scalaz.syntax.bifunctor._
 
 sealed trait SafeCatchable[A] {
   def toOption: Option[A] = this match {
-    case SafeSome(a) => Some(a)
-    case SafeNone() => None
+    case SafeSome(a) => some(a)
+    case SafeNone() => none
   }
 }
 case class SafeSome[A](a: A) extends SafeCatchable[A]
@@ -100,7 +103,7 @@ class XmlLexerTest extends Specification with ScalaCheck {
       new StringOps(xs).exists(f) ==> {
         // The arrays are not comparable, let's just use length
         def bilength(t: (String, String)) = t.bimap(_.length, _.length)
-        XmlLexer.break(f, xs).map(bilength) === Some(bilength(new StringOps(xs).span(!f(_))))
+        XmlLexer.break(f, xs).map(bilength) must beSome(bilength(new StringOps(xs).span(!f(_))))
       }
     }
   }

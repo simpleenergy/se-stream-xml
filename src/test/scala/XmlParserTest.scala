@@ -2,6 +2,8 @@ package com.simpleenergy.xml.stream
 
 import org.specs2.mutable._
 
+import scala.{List, Nil}
+
 class XmlParserTest extends Specification {
   "XML parser" should {
     "parse a full string document" in {
