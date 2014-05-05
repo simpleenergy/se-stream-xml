@@ -4,13 +4,16 @@ name := "se-stream-xml"
 
 version := "0.1"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.10.4"
 
-resolvers ++= Seq(Resolver.sonatypeRepo("snapshots"))
+resolvers ++= Seq(
+  Resolver.sonatypeRepo("snapshots"),
+  "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
+)
 
 libraryDependencies ++= Seq(
   "org.scalaz" %% "scalaz-core" % "7.1.0-M6",
-  "org.scalaz.stream" %% "scalaz-stream" % "0.4-SNAPSHOT",
+  "org.scalaz.stream" %% "scalaz-stream" % "0.4.1",
   "org.specs2" %% "specs2" % "2.3.10-scalaz-7.1.0-SNAPSHOT" % "test" exclude("org.scalaz", "scalaz-core_2.10") exclude("org.scalaz", "scalaz-concurrent_2.10")
 )
 
