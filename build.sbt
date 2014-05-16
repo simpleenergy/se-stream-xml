@@ -38,4 +38,15 @@ homepage := Some(url("https://github.com/simpleenergy/se-stream-xml"))
 
 licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
 
-bintrayPublishSettings
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+
+publishTo <<= (version) { version: String =>
+  val senexus  = "https://nexus.simpleenergy.com/content/repositories/"
+  val (name, url) = if (version.contains("-SNAPSHOT")) {
+    ("snapshots", senexus + "snapshots")
+  } else {
+    ("releases", senexus + "releases")
+  }
+  Some(Resolver.url(name, new URL(url)))
+}
+
